@@ -39,9 +39,14 @@ make install
 - On Visual Studio, go to Tools->Extensions and Updates.  From Microsoft Marketplace, download *Mono Tools* and install as an add-on
 - You will find an additonal *Mono" menu item and go to *Settings..." under the menu
 - Provide the ssh log-in information and the path where the app binary will be deployed (e.g. /user/root/MonoDebugTemp)
-
+<br><br>
+<img src="app_img/VSMonoDebuggerSettings1.png" width="400"/>&nbsp;<img src="app_img/VSMonoDebuggerSettings2.png" width="400"/>
+<br><br>
 ## 3. Deploy and debug app on the reader
 
 - Select Mono->Deploy and Debug (SSH).  Visual Studio deploy the app to the reader and debug through SSH.  You can put in breakpoint and debug the code on the device line by line
+<br><br>
+<img src="app_img/VSCSLibraryDebug.png" width="800"/>
+
 
 
