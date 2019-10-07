@@ -1,0 +1,40 @@
+[SAVE_TAG_DATA] = 1			; Save tag data in CSV file : 1 - Enable,  0 - Disable    (PLEASE DO NOT MOVE THIS LINE)
+
+[MULTIREADER_DEMO]
+; Reader #1
+; this is a CS469 4-port reader example
+IP = 127.0.0.1     	; Reader Ethernet IP Address (xxx.xxx.xxx.xxx)
+EPC_LEN = 6					; EPC Data Length (in WORDS)
+TOGGLE_TARGET = 1			; Toggle Flag A and Flag B (0 or 1)
+MULTIBANK = 0				; Read tag data in Multi-bank : 0 / 1 / 2
+
+REGION_CODE = FCC								; Region code: FCC / ETSI / TW / KR / HK / JP / JP2012 / AU / MY / SG / IN / G800 / ZA / BR1 / BR2 / ID / TH
+                                                ;              CN / CN 1 - CN12
+												
+; Antenna Port Setting, Port 0 to 3 are used for CS469 4-port Reader
+; Port(0-15), Sequence(0-47), Active State (ON/OFF), Power(0-300), Dwell Time in ms, Profile(0-5), Q Alg(FIX/DYN), Start Q(0-7), Port Freq Channel (HOP / CH-N, where N = Channel Number)
+READER_PARAM =
+0,ON,300,7000,2,DYN,7,HOP
+1,OFF,300,4000,2,DYN,7,HOP
+2,OFF,300,2000,2,DYN,7,HOP
+3,OFF,300,2500,2,DYN,7,HOP
+4,OFF,300,2000,2,DYN,7,HOP
+5,OFF,300,2000,2,DYN,7,HOP
+6,OFF,300,2000,2,DYN,7,HOP
+7,OFF,300,3500,2,DYN,7,CH-0
+8,OFF,300,3500,2,DYN,7,CH-3
+9,OFF,300,0000,2,DYN,7,CH-0
+10,OFF,300,2000,2,DYN,7,CH-0
+11,OFF,300,2000,2,DYN,7,CH-0
+12,OFF,300,2000,2,DYN,7,CH-0
+13,OFF,300,2000,2,DYN,7,CH-0
+14,OFF,300,6000,2,DYN,7,CH-0
+15,OFF,300,2500,2,DYN,7,HOP
+
+; Antenna Sequence Setting
+ANT_SEQUENCE_MODE = NORMAL					; Antenna Sequence Mode (NORMAL / SEQUENCE / SMART_CHK / SEQUENCE_SMART_CHK) (NORMAL means sequential)
+SEQUENCE = 0							  		; If ANT_SEQUENCE_MODE is not NORMAL, then you need to input this. Maximum number of input: 48
+
+
+
+
