@@ -388,6 +388,71 @@ namespace CS463LinuxMonoDemoApp
                                     }
                                 }
 
+                                str_checkconfig = "MQTT_BROKER_ENABLE =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].str_mqtt_broker_enable = words[2];                                  // Read Multi-bank
+                                    rdr_info_data[num_readers - 1].mqtt_broker_enable = rdr_info_data[num_readers - 1].str_mqtt_broker_enable == "1" ? true : false;
+                                }
+                                str_checkconfig = "MQTT_BROKER_IP =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].mqtt_broker_ip = words[2];
+                                }
+                                str_checkconfig = "MQTT_BROKER_PORT =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].str_mqtt_broker_port = words[2];                                  // Read Multi-bank
+                                    rdr_info_data[num_readers - 1].mqtt_broker_port = Convert.ToUInt32(rdr_info_data[num_readers - 1].str_mqtt_broker_port);
+                                    if ((rdr_info_data[num_readers - 1].mqtt_broker_port < 0) || (rdr_info_data[num_readers - 1].mqtt_broker_port > 9999))
+                                    {
+                                        Console.WriteLine("MQTT Port Number should be unsigned integer in valid range!");
+                                        Success = false;
+                                    }
+                                }
+                                str_checkconfig = "MQTT_BROKER_CLIENTID =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].mqtt_broker_clientid = words[2];
+                                }
+                                str_checkconfig = "MQTT_BROKER_DEVICE_PORT1 =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].mqtt_port_name[0] = words[2];
+                                }
+                                str_checkconfig = "MQTT_BROKER_DEVICE_PORT2 =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].mqtt_port_name[1] = words[2];
+                                }
+                                str_checkconfig = "MQTT_BROKER_DEVICE_PORT3 =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].mqtt_port_name[2] = words[2];
+                                }
+                                str_checkconfig = "MQTT_BROKER_DEVICE_PORT4 =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].mqtt_port_name[3] = words[2];
+                                }
+
+                                str_checkconfig = "TAG_SMOOTHER_TIME =";
+                                if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
+                                {
+                                    string[] words = s1.Split(delimiterChars);
+                                    rdr_info_data[num_readers - 1].str_tag_smoother = words[2];                                  // Read Multi-bank
+                                    rdr_info_data[num_readers - 1].tag_smoother = Convert.ToUInt32(rdr_info_data[num_readers - 1].str_tag_smoother);
+                                    if ((rdr_info_data[num_readers - 1].tag_smoother < 0) || (rdr_info_data[num_readers - 1].tag_smoother > 30000))
+                                    {
+                                        Console.WriteLine("tag smoother should be unsigned integer in valid range!");
                                         Success = false;
                                     }
                                 }
