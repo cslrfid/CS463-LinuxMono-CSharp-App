@@ -12,11 +12,16 @@ using System.Threading;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Net.NetworkInformation;
+using System.Linq;
+
+using uPLibrary.Networking.M2Mqtt;
+using Newtonsoft.Json;
+using uPLibrary.Networking.M2Mqtt.Messages;
 
 
 
 /*namespace CSL_Console_Mode_Demo*/
-namespace CSL_Sample_MultiReader_Reconnect
+namespace CS463LinuxMonoDemoApp
 {
 
     public struct program_config
@@ -34,6 +39,9 @@ namespace CSL_Sample_MultiReader_Reconnect
         public string str_user_data_len;
         public string str_toggleTarget;
         public string str_multiBanks;
+        public string str_mqtt_broker_enable;
+        public string str_mqtt_broker_port;
+        public string str_tag_smoother;
 
         public int read_epc_len;               // EPC Length defined by user (by WORDS)
         public int read_tid_len;               // TID Length defined by user (by WORDS)
@@ -61,6 +69,13 @@ namespace CSL_Sample_MultiReader_Reconnect
         public int tid_len_hex;              // number of digit display (defined by user) - TID
         public int user_data_len_hex;   // number of digit display (defined by user) - User data
 
+        public bool mqtt_broker_enable;
+        public string mqtt_broker_ip;
+        public uint mqtt_broker_port;
+        public string mqtt_broker_clientid;
+        public string[] mqtt_port_name;
+        public string mqtt_topic;
+        public uint tag_smoother;
     }
 
     public struct inventory_info
@@ -156,6 +171,15 @@ namespace CSL_Sample_MultiReader_Reconnect
     {
         public static List<HighLevelInterface> ReaderList = new List<HighLevelInterface>();
 
+        public static List<MqttClient> MqttBrokerList = new List<MqttClient>();
+
+        public static List<Dictionary<string, CTagResponse>[]> tagList = new List<Dictionary<string, CTagResponse>[]>();
+
+        public static Queue<CMqttEventMessage> eventQueue = new Queue<CMqttEventMessage>();
+
+        public static Thread tagInspectThread = new Thread(inspectTagBuffer);
+        public static Thread mqttEventThread = new Thread(sendEventToBroker);
+
         public const int MAX_PORT_SEQ_NUM = 48;
 
         public static string[] RegionArray = { "UNKNOWN", "FCC", "ETSI", "CN", "CN1", "CN2", "CN3", "CN4", "CN5", "CN6", "CN7", "CN8", "CN9", "CN10", "CN11", "CN12",
@@ -240,7 +264,8 @@ namespace CSL_Sample_MultiReader_Reconnect
         {
             char[] delimiterChars = { ' ', '\t' };
             string str_checkconfig = "";
-
+            tagList = new List<Dictionary<string, CTagResponse>[]>();
+            eventQueue.Clear();
 
             bool Success = false;
             try
@@ -285,20 +310,27 @@ namespace CSL_Sample_MultiReader_Reconnect
                             str_checkconfig = "[MULTIREADER_DEMO]";
                             if ((readline1.Length == str_checkconfig.Length) && (readline1.Substring(0, str_checkconfig.Length) == str_checkconfig))
                             {
+                                
+                                tagList.Add(new Dictionary<string, CTagResponse>[4]);
+                                tagList[num_readers][0] = new Dictionary<string, CTagResponse>();
+                                tagList[num_readers][1] = new Dictionary<string, CTagResponse>();
+                                tagList[num_readers][2] = new Dictionary<string, CTagResponse>();
+                                tagList[num_readers][3] = new Dictionary<string, CTagResponse>();
                                 num_readers++;
 
-                                rdr_info_data[num_readers - 1].antPort_state = new bool[16];                       // initialize mem for port state
+                                rdr_info_data[num_readers - 1].mqtt_port_name = new string[4];
+                                rdr_info_data[num_readers - 1].antPort_state = new bool[4];                       // initialize mem for port state
 
                                 rdr_info_data[num_readers - 1].antPort_seqTable = new byte[MAX_PORT_SEQ_NUM];                         // initialize mem for Port Sequence Table
                                 Array.Clear(rdr_info_data[num_readers - 1].antPort_seqTable, 0, MAX_PORT_SEQ_NUM);                    // Set to zero value
                                 rdr_info_data[num_readers - 1].antPort_seqTableSize = 0;
 
-                                rdr_info_data[num_readers - 1].antPort_power = new uint[16];                       // initialize mem for antenna Port - power
-                                rdr_info_data[num_readers - 1].antPort_dwell = new uint[16];                       // initialize mem for Dwell Time
-                                rdr_info_data[num_readers - 1].antPort_Pofile = new uint[16];                      // initialize mem for Port Profile
-                                rdr_info_data[num_readers - 1].antPort_QAlg = new SingulationAlgorithm[16];                      // initialize mem for Port Q Algorithm
-                                rdr_info_data[num_readers - 1].antPort_startQValue = new uint[16];                   // initialize mem for Start Q
-                                rdr_info_data[num_readers - 1].freq_channel = new uint[16];                         // initialize mem for freqency channel
+                                rdr_info_data[num_readers - 1].antPort_power = new uint[4];                       // initialize mem for antenna Port - power
+                                rdr_info_data[num_readers - 1].antPort_dwell = new uint[4];                       // initialize mem for Dwell Time
+                                rdr_info_data[num_readers - 1].antPort_Pofile = new uint[4];                      // initialize mem for Port Profile
+                                rdr_info_data[num_readers - 1].antPort_QAlg = new SingulationAlgorithm[4];                      // initialize mem for Port Q Algorithm
+                                rdr_info_data[num_readers - 1].antPort_startQValue = new uint[4];                   // initialize mem for Start Q
+                                rdr_info_data[num_readers - 1].freq_channel = new uint[4];                         // initialize mem for freqency channel
 
                                 rdr_info_data[num_readers - 1].IsNonHopping_usrDef = false;
 
@@ -356,6 +388,9 @@ namespace CSL_Sample_MultiReader_Reconnect
                                     }
                                 }
 
+                                        Success = false;
+                                    }
+                                }
                                 str_checkconfig = "REGION_CODE =";
                                 if ((s1.Length > str_checkconfig.Length) && (s1.Substring(0, str_checkconfig.Length) == str_checkconfig))
                                 {
@@ -494,7 +529,7 @@ namespace CSL_Sample_MultiReader_Reconnect
                                             }
 
                                         }
-                                    } while (t_cnt++ < 15);
+                                    } while (t_cnt++ < 3);
 
                                     // t_cnt = 16;
                                 }
@@ -636,28 +671,6 @@ namespace CSL_Sample_MultiReader_Reconnect
                 // Console.WriteLine("Number of Readers Running : " + cur_inv_info.num_reader_running_hold);
                 Console.WriteLine("Time : " + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss UTC zzz"));
 
-
-                /*
-                                PerformanceCounter dataReceivedCounter;
-                                PerformanceCounter dataSentCounter;
-
-                                NetworkInterface[] interfaces = NetworkInterface.GetAllNetworkInterfaces();
-                                foreach (NetworkInterface adapter in interfaces)
-                                {
-                                    // Console.WriteLine("Name: {0}", adapter.Name);
-                                    Console.WriteLine(adapter.Description);
-
-                                    dataReceivedCounter = new PerformanceCounter("Network Interface", "Bytes Received/sec", adapter.Description);
-                                    float flt_dataReceived = dataReceivedCounter.NextValue();
-                                    string str_dataReceived = flt_dataReceived.ToString();
-                                    Console.WriteLine("Bytes Received/sec:" + str_dataReceived);
-
-                                    dataSentCounter = new PerformanceCounter("Network Interface", "Bytes Sent/sec", adapter.Description);
-                                    float flt_dataSent = dataReceivedCounter.NextValue();
-                                    string str_dataSent = flt_dataSent.ToString();
-                                    Console.WriteLine("Bytes Sent/sec" + str_dataSent);
-                                }
-                */
                 string str_CurrentCpuUsage = Convert.ToString(getCpuUsage()) + "%";
                 Console.WriteLine("Current Cpu Usage: " + str_CurrentCpuUsage);
 
@@ -675,6 +688,21 @@ namespace CSL_Sample_MultiReader_Reconnect
                 Console.WriteLine("\r\n");
                 cur_inv_info.TagCountTimer = TagCountTimer;
 
+                //tag buffer information
+                for (int i = 0; i < num_readers; i++)
+                {
+                    if (tagList[i][0] != null)
+                        Console.WriteLine("Reader IP={0}, Port 1 Tag Buffer={1}",rdr_info_data[i].str_ip_addr, tagList[i][0].Count);
+                    if (tagList[i][1] != null)
+                        Console.WriteLine("Reader IP={0}, Port 2 Tag Buffer={1}", rdr_info_data[i].str_ip_addr, tagList[i][1].Count);
+                    if (tagList[i][2] != null)
+                        Console.WriteLine("Reader IP={0}, Port 3 Tag Buffer={1}", rdr_info_data[i].str_ip_addr, tagList[i][2].Count);
+                    if (tagList[i][3] != null)
+                        Console.WriteLine("Reader IP={0}, Port 4 Tag Buffer={1}", rdr_info_data[i].str_ip_addr, tagList[i][3].Count);
+
+                }
+
+                Console.WriteLine("MQTT Event Message Buffer.  Count={0}", eventQueue.Count);
 
                 if (flag_saveTagData == 1)
                 {
@@ -724,12 +752,12 @@ namespace CSL_Sample_MultiReader_Reconnect
         }
 
 
-        static object TagInventoryLock = new object();
+        //static object TagInventoryLock = new object();
         static void ReaderXP_TagInventoryEvent(object sender, CSLibrary.Events.OnAsyncCallbackEventArgs e)
         {
             string str_reader_info_0;
 
-            lock (TagInventoryLock)
+            lock (tagList)
             {
                 HighLevelInterface Reader = (HighLevelInterface)sender;
 
@@ -753,8 +781,118 @@ namespace CSL_Sample_MultiReader_Reconnect
                     str_dataLogEvt = "";
                 }
 
+                //save to buffer if not exist
+                for (int i=0;i<num_readers;i++)
+                {
+                    if (rdr_info_data[i].str_ip_addr == Reader.IPAddress)
+                    {
+                        CTagResponse tag = new CTagResponse();
+                        tag.epc = e.info.epc;
+                        tag.pc = e.info.pc;
+                        tag.antennaPort = e.info.antennaPort;
+                        tag.rssi = e.info.rssi;
+                        tag.timestamp = DateTime.Now;
+                        if (tagList[i][e.info.antennaPort].ContainsKey(e.info.epc.ToString().ToUpper()))
+                        {
+                            tagList[i][e.info.antennaPort].Remove(e.info.epc.ToString().ToUpper());
+                        }
+                        else
+                        {
+                            CMqttEventMessage evtMsg = new CMqttEventMessage();
+                            evtMsg.uuid = System.Guid.NewGuid().ToString();
+                            evtMsg.deviceIp = Reader.IPAddress;
+                            evtMsg.deviceName = rdr_info_data[i].mqtt_broker_clientid;
+                            evtMsg.epc = tag.epc.ToString();
+                            evtMsg.pc = tag.pc.ToString();
+                            evtMsg.timestamp = tag.timestamp.ToString("yyyy/MM/dd HH:mm:ss");
+                            evtMsg.readPoint = rdr_info_data[i].mqtt_port_name[tag.antennaPort];
+                            evtMsg.rssi = tag.rssi.ToString();
+                            evtMsg.type = EventType.TagPresence;
+                            eventQueue.Enqueue(evtMsg);
+                        }
+                        tagList[i][e.info.antennaPort].Add(e.info.epc.ToString().ToUpper(), tag);
+                    }
+                }
+
             }
         }
+
+        static void inspectTagBuffer()
+        {
+            while (true)
+            {
+                for (int i = 0; i < num_readers; i++)
+                {
+                    for (int port = 0; port < 4; port++)
+                    {
+                        List<CTagResponse> tagsToRemove = new List<CTagResponse>();
+                        lock (tagList[i][port])
+                        {
+                            DateTime currentTime = DateTime.Now;
+                            tagsToRemove = tagList[i][port].Values.ToList().Where(value => (currentTime - value.timestamp).TotalMilliseconds > rdr_info_data[i].tag_smoother).ToList();
+                            //remove tags
+                            //tagList[i][port].ToList().Where(pair => (currentTime - pair.Value.timestamp).TotalMilliseconds > rdr_info_data[i].tag_smoother).ToList().ForEach(pair => tagList[i][port].Remove(pair.Key));
+                           
+                            //remove absense tags
+                            foreach (CTagResponse tag in tagsToRemove)
+                            {
+                                tagList[i][port].Remove(tag.epc.ToString());
+                            }
+    
+                        }
+
+                        foreach (CTagResponse tag in tagsToRemove)
+                        {
+                                //generate event on tag absence
+                                CMqttEventMessage evtMsg = new CMqttEventMessage();
+                                evtMsg.uuid = System.Guid.NewGuid().ToString();
+                                evtMsg.deviceIp = rdr_info_data[i].str_ip_addr;
+                                evtMsg.deviceName = rdr_info_data[i].mqtt_broker_clientid;
+                                evtMsg.epc = tag.epc.ToString();
+                                evtMsg.pc = tag.pc.ToString();
+                                evtMsg.timestamp = tag.timestamp.ToString("yyyy/MM/dd HH:mm:ss");
+                                evtMsg.readPoint = rdr_info_data[i].mqtt_port_name[port];
+                                evtMsg.rssi = tag.rssi.ToString();
+                                evtMsg.type = EventType.TagAbsence;
+                                eventQueue.Enqueue(evtMsg);
+                        }
+
+                        Thread.Sleep(100);
+                    }
+                }
+            }
+        }
+
+
+        static void sendEventToBroker()
+        {
+            while (true)
+            {
+                CMqttEventMessage message;
+                lock (eventQueue)
+                {
+                    if (eventQueue.Count > 0)
+                        message = eventQueue.Dequeue();
+                    else
+                    {
+                        Thread.Sleep(10);
+                        continue;
+                    }
+                }
+
+                for (int i=0;i<num_readers;i++)
+                {
+                    if(rdr_info_data[i].str_ip_addr == message.deviceIp)
+                    {
+                        string topic = String.Format("devices/{0}/messages/events/", message.deviceName, message.type);
+                        MqttBrokerList[i].Publish(topic, Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(message, Formatting.Indented)), MqttMsgBase.QOS_LEVEL_AT_LEAST_ONCE, true);
+                        break;
+                    }
+                }
+
+            }
+        }
+
 
         static void Main(string[] args)
         {
@@ -783,7 +921,21 @@ namespace CSL_Sample_MultiReader_Reconnect
             Console.WriteLine("Press [Esc] to quit after reader is connected.");
             Console.WriteLine(" ");
 
+            // Connect to mqtt broker
+            for (int cnt = 0; cnt < num_readers; cnt++)
+            {
+                if (rdr_info_data[cnt].mqtt_broker_enable)
+                {
+                    //connect to mqtt broker
+                    MqttClient client = new MqttClient(rdr_info_data[cnt].mqtt_broker_ip);
+                    client.Connect(rdr_info_data[cnt].mqtt_broker_clientid);
+                    MqttBrokerList.Add(client);
+                }
+            }
 
+            //start thread that generates the tagAbsence event
+            tagInspectThread.Start();
+            mqttEventThread.Start();
 
             // Connect Multi Reader
             for (int cnt = 0; cnt < num_readers; cnt++)
@@ -908,7 +1060,7 @@ namespace CSL_Sample_MultiReader_Reconnect
                     // ------------------------------  Set Antenna Port State and Configuration
                     CSLibrary.Structures.AntennaPortStatus t_AntennaPortStatus = new CSLibrary.Structures.AntennaPortStatus();
                     CSLibrary.Structures.AntennaPortConfig t_AntennaPortConfig = new CSLibrary.Structures.AntennaPortConfig();
-                    for (uint t_port = 0; t_port < 16; t_port++)
+                    for (uint t_port = 0; t_port < 4; t_port++)
                     {
                         if (rdr_info_data[idxList].antPort_state[t_port] == false)
                         {
