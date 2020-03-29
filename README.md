@@ -1,7 +1,7 @@
 # Running C#/.NET Custom App on CS463 Intelligent Reader
 
 <p align="center">
-  <a href="https://www.convergence.com.hk"><img src="./images/csl-logo.png"/></a>
+  <a href="https://www.convergence.com.hk"><img src="./app_img/csl-logo.png"/></a>
 </p>
 
 Please refer to the following post for detailed instructions:
